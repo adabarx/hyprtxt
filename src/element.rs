@@ -151,14 +151,12 @@ pub struct ElementStream {
     pub tag: Ident,
     pub attrs: Vec<AttrStream>,
     pub content: Vec<Box<ContentStream>>,
-    pub brace: syn::token::Brace,
 }
 
 impl ElementStream {
-    pub fn new(tag: Ident, brace: syn::token::Brace) -> Self {
+    pub fn new(tag: Ident) -> Self {
         Self {
             tag,
-            brace,
             attrs: vec![],
             content: vec![]
         }
@@ -171,9 +169,9 @@ impl Parse for ElementStream  {
         if let Ok(ident) = stream.parse::<Ident>() {
             println!("  has ident");
             let braced_stream: ParseBuffer;
-            let brace = braced!(braced_stream in stream);
+            let _ = braced!(braced_stream in stream);
 
-            let mut element = ElementStream::new(ident, brace);
+            let mut element = ElementStream::new(ident);
 
             while !braced_stream.is_empty() {
                 println!("    in braces");
