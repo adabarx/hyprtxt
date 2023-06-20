@@ -1,5 +1,7 @@
-#![allow(dead_code)]
+#![allow(dead_code, unused_variables, unused_imports)]
 
+use quote::{quote, ToTokens, TokenStreamExt};
+use proc_macro2::{TokenTree, Group, Delimiter};
 use syn::{braced, parse::{Parse, ParseStream, ParseBuffer}, Ident, token, Token, Expr};
 
 pub trait ToHTML {
@@ -101,12 +103,9 @@ impl ContentStream {
 
 impl Parse for ContentStream {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        println!("parse content stream");
         if input.peek(Ident) && input.peek2(token::Brace) {
-            println!("  is element stream\n");
             Ok(Self::new_node(input.parse()?))
         } else if input.peek(Token!($)) && input.peek2(token::Brace) {
-            println!("  is literal\n");
             let _: Token![$] = input.parse()?;
 
             let braced_stream: ParseBuffer;
@@ -119,6 +118,19 @@ impl Parse for ContentStream {
     }
 }
 
+impl ToTokens for ContentStream {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        match self {
+            Self::Text(text) => {
+                tokens.append_all(quote! { (#text).to_string() });
+            },
+            Self::Node(node) => {
+                tokens.append_all(node.to_token_stream());
+            },
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum AttrStream {
     KeyVal(Ident, Expr),
@@ -127,21 +139,31 @@ pub enum AttrStream {
 
 impl Parse for AttrStream {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        println!("parse attr stream");
         if let Ok(ident) = input.parse::<Ident>() {
-            println!("  has ident");
             if input.peek(Token![:]) {
-                println!("    is key val");
                 let _: Token![:] = input.parse()?;
                 let lit: Expr = input.parse()?;
-                println!("    parsed literal\n");
                 Ok(Self::KeyVal(ident, lit))
             } else {
-                println!("    is val\n");
                 Ok(Self::Val(ident))
             }
         } else {
             Err(syn::Error::new(input.span(), "invalid attr"))
+        }
+    }
+}
+
+impl ToTokens for AttrStream {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        match self {
+            Self::KeyVal(k, v) => {
+                let k = k.to_string();
+                tokens.append_all(quote! { format!(" {}=\"{}\"", #k, #v) });
+            },
+            Self::Val(v) => {
+                let v = v.to_string();
+                tokens.append_all(quote! { format!(" {}", #v) })
+            },
         }
     }
 }
@@ -165,22 +187,17 @@ impl ElementStream {
 
 impl Parse for ElementStream  {
     fn parse(stream: ParseStream) -> syn::Result<Self> {
-        println!("parse element");
         if let Ok(ident) = stream.parse::<Ident>() {
-            println!("  has ident");
             let braced_stream: ParseBuffer;
             let _ = braced!(braced_stream in stream);
 
             let mut element = ElementStream::new(ident);
 
             while !braced_stream.is_empty() {
-                println!("    in braces");
                 // is content, attr, or error
                 if braced_stream.peek(Ident) && braced_stream.peek2(token::Brace) || braced_stream.peek(Token![$]) {
-                    println!("      matches content\n");
                     element.content.push(braced_stream.parse()?);
                 } else if braced_stream.peek(Ident) && braced_stream.peek2(Token![:]) {
-                    println!("      matches attr\n");
                     element.attrs.push(braced_stream.parse()?);
                 } else if braced_stream.peek(Token![,]) {
                     let _: Token![,] = braced_stream.parse()?;
@@ -195,3 +212,28 @@ impl Parse for ElementStream  {
         }
     }
 }
+
+impl ToTokens for ElementStream {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let tag = self.tag.to_string();
+        let attrs = &self.attrs;
+        let content = &self.content;
+        tokens.append_all(quote! {
+            format!("<{}{}>{}<{}/>",
+                #tag,
+
+                {
+                    let list: Vec<String> = vec![#(#attrs),*];
+                    list.join("")
+                },
+
+                {
+                    let list: Vec<String> = vec![#(#content),*];
+                    list.join("")
+                },
+
+                #tag)
+        })
+    }
+}
+

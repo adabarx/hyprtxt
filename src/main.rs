@@ -1,8 +1,8 @@
 #![allow(dead_code)]
-use html_gen::html;
+use hyprtxt::hyprtxt;
 
 fn main() {
-    html!(
+    let x = hyprtxt!(
         html {
             lang: "en"
             head {
@@ -16,7 +16,8 @@ fn main() {
                 }
             }
         }
-    )
+    );
+    dbg!(x);
 }
 
 fn write_to_file(input: String) -> std::io::Result<()> {
