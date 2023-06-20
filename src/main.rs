@@ -2,17 +2,20 @@
 use html_gen::html;
 
 fn main() {
-    html!(html {
-        head {
-            meta { test: "attribute" },
-            meta { test: "attribute2", foo: "attribute3" }
-        },
-        body {
-            p {
-                $ { "this is the content" },
-            },
-        },
-    })
+    html!(
+        html {
+            head {
+                meta { charset: "UTF-8" }
+                meta { name: "viewport", content: "width=device-width" }
+                title { $ { "Will this work???" } }
+            }
+            body {
+                p {
+                    $ { "this is the content" }
+                }
+            }
+        }
+    )
 }
 
 fn write_to_file(input: String) -> std::io::Result<()> {
