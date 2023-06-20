@@ -1,33 +1,18 @@
-use html_gen::elements::{HTML, Head, Body, P, AddAttribute, AddContent, ToHTML, Meta, Title};
-
-#[derive(Clone)]
-struct Doctype;
-
-impl ToHTML for Doctype {
-    fn render(&self) -> String {
-        "<!DOCTYPE html>".to_string()
-    }
-}
+#![allow(dead_code)]
+use html_gen::html;
 
 fn main() {
-    let page: Vec<Box<dyn ToHTML>> = vec![Box::new(Doctype)];
-
-    let page = page.add_content(HTML::new()
-        .add_attribute("lang", "en")
-        .add_content(Head::new()
-            .add_content(Meta::new().add_attribute("charset", "UTF-8"))
-            .add_content(Meta::new()
-                .add_attribute("name", "viewport")
-                .add_attribute("content", "width=device-width"))
-            .add_content(Title::new().add_content("Will this work???")))
-        .add_content(Body::new()
-            .add_content(P::new().add_content("This is some content"))));
-
-    if let Ok(()) = write_to_file(page.render()) {
-        println!("{}", page.render())
-    } else {
-        println!("booooooo...")
-    };
+    html!(html {
+        head {
+            meta { test: "attribute" },
+            meta { test: "attribute2", foo: "attribute3" }
+        },
+        body {
+            p {
+                $ { "this is the content" },
+            },
+        },
+    })
 }
 
 fn write_to_file(input: String) -> std::io::Result<()> {
