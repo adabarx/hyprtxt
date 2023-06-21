@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use hyprtxt::hyprtxt;
 
-fn page_template(slot: HTML) -> HTML {
+pub fn page_template(slot: HTML) -> HTML {
     HTML(hyprtxt!(
         html {
             lang: "en"
