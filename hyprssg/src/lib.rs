@@ -21,13 +21,40 @@ pub fn page_template(slot: String) -> String {
     )
 }
 
+#[derive(PartialEq, Eq, Hash)]
+pub struct Endpoint {
+    dir: Vec<String>,
+    name: String,
+}
+
+impl Endpoint {
+    pub fn new(mut path: Vec<String>) -> Self {
+        let name = path.pop().unwrap();
+        Self { dir: path, name }
+    }
+
+    pub fn dir(&self) -> String {
+        let mut dir = "/".to_string();
+        dir.push_str(self.dir.join("/").as_str());
+        dir
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn path(&self) -> String {
+        [self.dir(), self.name()].join("/")
+    }
+}
+
 pub trait StaticSite {
-    fn add_endpoint(&mut self, path: String, response: String);
+    fn add_endpoint(&mut self, path: Endpoint, response: String);
     fn generate(&self) -> Result<(), std::io::Error>;
 }
 
-impl StaticSite for HashMap<String, String> {
-    fn add_endpoint(&mut self, path: String, response: String) {
+impl StaticSite for HashMap<Endpoint, String> {
+    fn add_endpoint(&mut self, path: Endpoint, response: String) {
         let page = page_template(response);
         self.insert(path, page);
     }
@@ -36,7 +63,8 @@ impl StaticSite for HashMap<String, String> {
         use std::fs;
 
         for (path, page) in self.iter() {
-            fs::write(["/public", path].join(""), page.to_string())?;
+            fs::write(path.path(), page.to_string())?;
+
         }
 
         Ok(())
