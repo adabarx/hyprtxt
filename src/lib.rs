@@ -8,9 +8,6 @@ use syn::{
 
 #[proc_macro]
 pub fn hyprtxt(input: TokenStream) -> TokenStream {
-
-    // TODO: refactor element and content
-
     match syn::parse::<ElementStream>(input) {
         Ok(cs) => cs.to_token_stream().into(),
         Err(e) => e.to_compile_error().into(),
