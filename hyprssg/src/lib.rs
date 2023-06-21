@@ -33,10 +33,8 @@ impl Endpoint {
         Self { dir: path, name }
     }
 
-    pub fn dir(&self) -> String {
-        let mut dir = "/".to_string();
-        dir.push_str(self.dir.join("/").as_str());
-        dir
+    pub fn dir(&self, prefix: &str) -> String {
+        [prefix.to_string(), "/".to_string(), self.dir.join("/")].join("")
     }
 
     pub fn name(&self) -> String {
@@ -45,8 +43,8 @@ impl Endpoint {
         name
     }
 
-    pub fn path(&self) -> String {
-        [self.dir(), self.name()].join("/")
+    pub fn path(&self, prefix: &str) -> String {
+        [self.dir(prefix), self.name()].join("/")
     }
 }
 
@@ -63,10 +61,11 @@ impl StaticSite for HashMap<Endpoint, String> {
 
     fn generate(&self) -> Result<(), std::io::Error> {
         use std::fs;
+        let prefix = "public";
 
         for (endpoint, page) in self.iter() {
-            fs::create_dir_all(endpoint.dir())?;
-            fs::write(endpoint.path(), page.to_string())?;
+            fs::create_dir_all(endpoint.dir(prefix))?;
+            fs::write(endpoint.path(prefix), page.to_string())?;
 
         }
 
