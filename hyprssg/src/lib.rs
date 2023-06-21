@@ -55,8 +55,7 @@ pub trait StaticSite {
 
 impl StaticSite for HashMap<Endpoint, String> {
     fn add_endpoint(&mut self, path: Endpoint, response: String) {
-        let page = page_template(response);
-        self.insert(path, page);
+        self.insert(path, response);
     }
 
     fn generate(&self) -> Result<(), std::io::Error> {
