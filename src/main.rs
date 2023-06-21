@@ -8,11 +8,12 @@ fn main() {
             head {
                 meta { charset: "UTF-8" }
                 meta { name: "viewport", content: "width=device-width" }
-                title { $ { "Will this work???" } }
+                title { $: "Will this work???" }
             }
             body {
                 p {
-                    $ { "this is the content" }
+                    $: "this is the content"
+                    $: "this is moar"
                 }
             }
         }

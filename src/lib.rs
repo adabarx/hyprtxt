@@ -8,7 +8,10 @@ use syn::{
 
 #[proc_macro]
 pub fn hyprtxt(input: TokenStream) -> TokenStream {
-    match syn::parse::<ContentStream>(input) {
+
+    // TODO: refactor element and content
+
+    match syn::parse::<ElementStream>(input) {
         Ok(cs) => cs.to_token_stream().into(),
         Err(e) => e.to_compile_error().into(),
     }
@@ -16,48 +19,26 @@ pub fn hyprtxt(input: TokenStream) -> TokenStream {
 
 
 #[derive(Debug)]
-enum ContentStream {
-    Text(Expr),
-    Node(Box<ElementStream>),
-}
+struct ContentStream(Expr);
 
-impl ContentStream {
-    pub fn new_text(s: Expr) -> Self {
-        Self::Text(s)
-    }
-
-    pub fn new_node(s: ElementStream) -> Self {
-        Self::Node(Box::new(s))
-    }
-}
 
 impl Parse for ContentStream {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        if input.peek(Ident) && input.peek2(token::Brace) {
-            Ok(Self::new_node(input.parse()?))
-        } else if input.peek(Token!($)) && input.peek2(token::Brace) {
+        if input.peek(Token!($)) && input.peek2(Token!(:)) {
             let _: Token![$] = input.parse()?;
+            let _: Token![:] = input.parse()?;
 
-            let braced_stream: ParseBuffer;
-            let _ = braced!(braced_stream in input);
-
-            Ok(Self::new_text(braced_stream.parse()?))
+            Ok(Self(input.parse()?))
         } else {
-            Err(syn::Error::new(input.span(), "neither element or text"))
+            Err(input.error("invalid content"))
         }
     }
 }
 
 impl ToTokens for ContentStream {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        match self {
-            Self::Text(text) => {
-                tokens.append_all(quote! { (#text).to_string() });
-            },
-            Self::Node(node) => {
-                tokens.append_all(node.to_token_stream());
-            },
-        }
+        let text = &self.0;
+        tokens.append_all(quote! { (#text).to_string() });
     }
 }
 
@@ -98,11 +79,10 @@ impl ToTokens for AttrStream {
     }
 }
 
-#[derive(Debug)]
 struct ElementStream {
     tag: Ident,
     attrs: Vec<AttrStream>,
-    content: Vec<Box<ContentStream>>,
+    content: Vec<Box<dyn ToTokens>>,
 }
 
 impl ElementStream {
@@ -125,8 +105,10 @@ impl Parse for ElementStream  {
 
             while !braced_stream.is_empty() {
                 // is content, attr, or error
-                if braced_stream.peek(Ident) && braced_stream.peek2(token::Brace) || braced_stream.peek(Token![$]) {
-                    element.content.push(braced_stream.parse()?);
+                if braced_stream.peek(Ident) && braced_stream.peek2(token::Brace) {
+                    element.content.push(Box::new(braced_stream.parse::<ElementStream>()?));
+                } else if braced_stream.peek(Token!($)) && braced_stream.peek2(Token!(:)) {
+                    element.content.push(Box::new(braced_stream.parse::<ContentStream>()?));
                 } else if braced_stream.peek(Ident) && braced_stream.peek2(Token![:]) {
                     element.attrs.push(braced_stream.parse()?);
                 } else if braced_stream.peek(Token![,]) {
