@@ -218,22 +218,34 @@ impl ToTokens for ElementStream {
         let tag = self.tag.to_string();
         let attrs = &self.attrs;
         let content = &self.content;
-        tokens.append_all(quote! {
-            format!("<{}{}>{}<{}/>",
-                #tag,
+        if self.content.len() > 0 {
+            tokens.append_all(quote! {
+                format!("<{}{}>{}<{}/>",
+                    #tag,
 
-                {
-                    let list: Vec<String> = vec![#(#attrs),*];
-                    list.join("")
-                },
+                    {
+                        let list: Vec<String> = vec![#(#attrs),*];
+                        list.join("")
+                    },
 
-                {
-                    let list: Vec<String> = vec![#(#content),*];
-                    list.join("")
-                },
+                    {
+                        let list: Vec<String> = vec![#(#content),*];
+                        list.join("")
+                    },
 
-                #tag)
-        })
+                    #tag)
+            })
+        } else {
+            tokens.append_all(quote! {
+                format!("<{}{}/>",
+                    #tag,
+
+                    {
+                        let list: Vec<String> = vec![#(#attrs),*];
+                        list.join("")
+                    })
+            })
+        }
     }
 }
 
