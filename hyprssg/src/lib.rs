@@ -28,9 +28,23 @@ pub struct Endpoint {
 }
 
 impl Endpoint {
-    pub fn new(mut path: Vec<String>) -> Self {
-        let name = path.pop().unwrap();
-        Self { dir: path, name }
+    pub fn new(path: &[&str]) -> Self {
+        let mut path = path.into_iter().peekable();
+        let mut dir = vec![];
+        let mut name = "".to_string();
+        
+        loop {
+            if let Some(&next) = path.next() {
+                if path.peek().is_some() {
+                    dir.push(next.to_string());
+                } else {
+                    name.push_str(next);
+                    break
+                }
+            }
+        }
+
+        Self { dir, name }
     }
 
     pub fn dir(&self, prefix: &str) -> String {
