@@ -40,7 +40,9 @@ impl Endpoint {
     }
 
     pub fn name(&self) -> String {
-        self.name.clone()
+        let mut name = self.name.clone();
+        name.push_str(".html");
+        name
     }
 
     pub fn path(&self) -> String {
