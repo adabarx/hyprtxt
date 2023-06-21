@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use hyprtxt::hyprtxt;
 
-pub fn page_template(slot: impl Into<String>) -> HTML {
-    HTML(hyprtxt!(
+pub fn page_template(slot: String) -> String {
+    hyprtxt!(
         html {
             lang: "en"
             head {
@@ -18,24 +18,16 @@ pub fn page_template(slot: impl Into<String>) -> HTML {
             }
             $: slot
         }
-    ))
-}
-
-pub struct HTML(String);
-
-impl ToString for HTML {
-    fn to_string(&self) -> String {
-        self.0.to_string()
-    }
+    )
 }
 
 pub trait StaticSite {
-    fn add_endpoint(&mut self, path: String, response: HTML);
+    fn add_endpoint(&mut self, path: String, response: String);
     fn generate(&self) -> Result<(), std::io::Error>;
 }
 
-impl StaticSite for HashMap<String, HTML> {
-    fn add_endpoint(&mut self, path: String, response: HTML) {
+impl StaticSite for HashMap<String, String> {
+    fn add_endpoint(&mut self, path: String, response: String) {
         let page = page_template(response);
         self.insert(path, page);
     }
