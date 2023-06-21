@@ -64,8 +64,9 @@ impl StaticSite for HashMap<Endpoint, String> {
     fn generate(&self) -> Result<(), std::io::Error> {
         use std::fs;
 
-        for (path, page) in self.iter() {
-            fs::write(path.path(), page.to_string())?;
+        for (endpoint, page) in self.iter() {
+            fs::create_dir_all(endpoint.dir())?;
+            fs::write(endpoint.path(), page.to_string())?;
 
         }
 
