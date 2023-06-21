@@ -220,7 +220,7 @@ impl ToTokens for ElementStream {
         let content = &self.content;
         if self.content.len() > 0 {
             tokens.append_all(quote! {
-                format!("<{}{}>{}<{}/>",
+                format!("<{}{}>{}</{}>",
                     #tag,
 
                     {
