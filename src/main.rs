@@ -2,7 +2,21 @@
 use hyprtxt::hyprtxt;
 
 fn main() {
-    let x = hyprtxt!(
+    let x = template(hyprtxt!(
+        body {
+            p {
+                $: "this is some text"
+                div {
+                    $: "this is some nested text"
+                }
+            }
+        }
+    ));
+    dbg!(x);
+}
+
+fn template(slot: String) -> String {
+    hyprtxt!(
         html {
             lang: "en"
             head {
@@ -10,15 +24,9 @@ fn main() {
                 meta { name: "viewport", content: "width=device-width" }
                 title { $: "Will this work???" }
             }
-            body {
-                p {
-                    $: "this is the content"
-                    $: "this is moar"
-                }
-            }
+            $: slot
         }
-    );
-    dbg!(x);
+    )
 }
 
 fn write_to_file(input: String) -> std::io::Result<()> {
