@@ -62,6 +62,17 @@ impl Endpoint {
     }
 }
 
+impl From<&str> for Endpoint {
+    fn from(value: &str) -> Self {
+        let mut dir: Vec<String> = value.split("/")
+            .map(|name| name.to_string())
+            .collect();
+        let name = dir.pop().unwrap();
+
+        Self { dir, name }
+    }
+}
+
 pub trait StaticSite {
     fn add_endpoint(&mut self, path: Endpoint, response: String);
     fn generate(&self) -> Result<(), std::io::Error>;
