@@ -7,11 +7,11 @@ edition = "2021"
 
 [workspace]
 members = [
-    "hyprtxt",
-    "hyprssg"
+    "txt",
+    "ssg"
 ]
 
 [dependencies]
-hyprtxt = { path = "hyprtxt"}
-hyprssg = { path = "hyprssg"}
+hyprtxt = { path = "txt"}
+hyprssg = { path = "ssg"}
 
