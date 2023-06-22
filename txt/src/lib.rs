@@ -164,11 +164,14 @@ impl Parse for ElementStream  {
 
         let mut element = match ElemTypeResult::new(stream)? {
             ElemTypeResult::Default => ElementStream::new(ident, false),
-            ElemTypeResult::Void => ElementStream::new(ident, true),
+            ElemTypeResult::Void => {
+                let _: Token!(*) = stream.parse()?;
+                ElementStream::new(ident, true)
+            },
             ElemTypeResult::Content => {
                 let _: Token!(:) = stream.parse()?;
                 let mut element = ElementStream::new(ident, false);
-                element.content.push(Box::new(stream.parse::<ContentStream>()?));
+                element.content.push(Box::new(stream.parse::<Expr>()?));
                 return Ok(element)
             },
 
@@ -178,18 +181,13 @@ impl Parse for ElementStream  {
         let _ = braced!(b_stream in stream);
 
         while !b_stream.is_empty() {
+            use PeekInsideElemResult::*;
             match PeekInsideElemResult::new(&b_stream)? {
-                PeekInsideElemResult::Content =>
+                Content =>
                     element.content.push(Box::new(b_stream.parse::<ContentStream>()?)),
-                PeekInsideElemResult::Element =>
+                Element =>
                     element.content.push(Box::new(b_stream.parse::<ElementStream>()?)),
-                PeekInsideElemResult::Id => {
-                    let _: Token!(.) = b_stream.parse()?;
-                    let _: Token!(=) = b_stream.parse()?;
-                    // element.attrs.push(value)
-                },
-                PeekInsideElemResult::Class => todo!(),
-                PeekInsideElemResult::Attribute => todo!(),
+                Id | Class | Attribute => element.attrs.push(b_stream.parse()?),
             }
         };
 
@@ -202,24 +200,17 @@ impl ToTokens for ElementStream {
         let tag = self.tag.to_string();
         let attrs = &self.attrs;
         let content = &self.content;
-        if self.content.len() > 0 {
+        if self.void {
             tokens.append_all(quote! {
-                format!("<{}{}>{}</{}>",
+                format!("<{}{}>",
                     #tag,
 
                     {
                         let list: Vec<String> = vec![#(#attrs),*];
                         list.join("")
-                    },
-
-                    {
-                        let list: Vec<String> = vec![#(#content),*];
-                        list.join("")
-                    },
-
-                    #tag)
+                    })
             })
-        } else {
+        } else if self.content.len() == 0 {
             tokens.append_all(quote! {
                 format!("<{}{}/>",
                     #tag,
@@ -228,6 +219,23 @@ impl ToTokens for ElementStream {
                         let list: Vec<String> = vec![#(#attrs),*];
                         list.join("")
                     })
+            })
+        } else {
+            tokens.append_all(quote! {
+                format!("<{}{}>{}</{}>",
+                    #tag,
+
+                    {
+                        let list: Vec<String> = vec![#(#attrs.into()),*];
+                        list.join("")
+                    },
+
+                    {
+                        let list: Vec<String> = vec![#(#content.into()),*];
+                        list.join("")
+                    },
+
+                    #tag)
             })
         }
     }
