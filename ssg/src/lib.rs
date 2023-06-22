@@ -4,25 +4,6 @@ use std::{io::Error, fs};
 
 use hyprtxt::hyprtxt;
 
-pub fn page_template(slot: String) -> String {
-    hyprtxt!(
-        html {
-            lang: "en"
-            head {
-                meta { charset: "UTF-8" }
-                meta { name: "viewport", content: "width=device-width" }
-                title { $: "Will this work???" }
-                script { 
-                    src: "https://unpkg.com/htmx.org@1.9.2"
-                    integrity: "sha384-L6OqL9pRWyyFU3+/bjdSri+iIphTN/bvYyM37tICVyOJkWZLpP2vGn6VUEXgzg6h"
-                    crossorigin: "anonymous"
-                }
-            }
-            $: slot
-        }
-    )
-}
-
 #[derive(PartialEq, Eq, Hash)]
 pub struct Endpoint {
     dir: Vec<String>,
@@ -100,14 +81,17 @@ impl StaticSite for HashMap<Endpoint, String> {
                             let to = [path, file_name.as_ref()].join("");
                             fs::create_dir_all(path)?;
                             fs::copy(p.path(), &to)?;
-                            rv.push(to);
+                            //
+                            //  FIX: adding type to this script breaks the macro
+                            //
+                            rv.push(hyprtxt!(script { src: &to[7..] }));
                         },
                         "css" => {
                             let path = "./public/assets/css";
                             let to = [path, file_name.as_ref()].join("");
                             fs::create_dir_all(path)?;
                             fs::copy(p.path(), &to)?;
-                            rv.push(to);
+                            rv.push(hyprtxt!(link { rel: "stylesheet", href: &to[7..] }));
                         },
                         _ => continue,
                     }
