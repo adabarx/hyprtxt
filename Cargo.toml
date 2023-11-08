@@ -8,10 +8,12 @@ edition = "2021"
 [workspace]
 members = [
     "txt",
-    "ssg"
+    "ssg",
+    "css",
 ]
 
 [dependencies]
 hyprtxt = { path = "txt"}
 hyprssg = { path = "ssg"}
+hyprcss = { path = "css"}
 

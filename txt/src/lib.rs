@@ -94,7 +94,7 @@ impl ElementStream {
 
 enum ElemTypeResult {
     Void,
-    Content,
+    SingleContainer,
     Default,
 }
 
@@ -109,7 +109,7 @@ impl ElemTypeResult {
         };
 
         if s.peek(Token!(:)) {
-            return Ok(Self::Content)
+            return Ok(Self::SingleContainer)
         }
 
         Err(s.error("Invalid Element"))
@@ -153,6 +153,9 @@ impl PeekInsideElemResult {
         if s.peek(Ident::peek_any) && s.peek2(Token!(*)) && s.peek3(token::Brace) {
             return Ok(Self::Element)
         };
+        if s.peek(Ident::peek_any) && s.peek2(Token!(*)) && s.peek3(token::Brace) {
+            return Ok(Self::Element)
+        };
         Err(s.error("Invalid Syntax"))
     }
 }
@@ -168,10 +171,14 @@ impl Parse for ElementStream  {
                 let _: Token!(*) = stream.parse()?;
                 ElementStream::new(ident, true)
             },
-            ElemTypeResult::Content => {
+            ElemTypeResult::SingleContainer => {
                 let _: Token!(:) = stream.parse()?;
                 let mut element = ElementStream::new(ident, false);
-                element.content.push(Box::new(stream.parse::<Expr>()?));
+                if stream.peek(Ident::peek_any) {
+                    element.content.push(Box::new(stream.parse::<ElementStream>()?))
+                } else {
+                    element.content.push(Box::new(stream.parse::<Expr>()?));
+                }
                 return Ok(element)
             },
 
@@ -207,17 +214,7 @@ impl ToTokens for ElementStream {
 
                     {
                         let list: Vec<String> = vec![#(#attrs),*];
-                        list.join("")
-                    })
-            })
-        } else if self.content.len() == 0 {
-            tokens.append_all(quote! {
-                format!("<{}{}/>",
-                    #tag,
-
-                    {
-                        let list: Vec<String> = vec![#(#attrs),*];
-                        list.join("")
+                        list.concat()
                     })
             })
         } else {
@@ -227,12 +224,12 @@ impl ToTokens for ElementStream {
 
                     {
                         let list: Vec<String> = vec![#(#attrs.into()),*];
-                        list.join("")
+                        list.concat()
                     },
 
                     {
                         let list: Vec<String> = vec![#(#content.into()),*];
-                        list.join("")
+                        list.concat()
                     },
 
                     #tag)

@@ -1,5 +1,6 @@
 #![allow(unused)]
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::{io::Error, fs};
 
 use hyprtxt::hyprtxt;
@@ -56,67 +57,119 @@ impl From<&str> for Endpoint {
     }
 }
 
-pub trait StaticSite {
-    fn bundle_assets(&mut self) -> Result<Vec<String>, std::io::Error>;
-    fn add_endpoint(&mut self, path: Endpoint, response: String);
-    fn generate(&self) -> Result<(), std::io::Error>;
+pub struct SiteBuilder {
+    pages: HashMap<Endpoint, String>,
+    endpoints: HashMap<Endpoint, String>,
+    template: Box<dyn Fn(String) -> String>,
 }
 
-impl StaticSite for HashMap<Endpoint, String> {
-    fn bundle_assets(&mut self) -> Result<Vec<String>, Error> {
-        let paths = fs::read_dir("./assets")?;
-        let mut rv = vec![];
-        for path in paths {
-            if let Ok(p) = path {
-                let file_name = p.path()
-                    .file_name()
-                    .unwrap()
-                    .to_string_lossy()
-                    .to_string();
+impl SiteBuilder {
 
-                if let Some(ext) = file_name.split(".").last() {
-                    match ext {
-                        "js" => {
-                            let path = "./public/assets/js";
-                            let to = [path, file_name.as_ref()].join("");
-                            fs::create_dir_all(path)?;
-                            fs::copy(p.path(), &to)?;
-                            //
-                            //  FIX: adding type to this script breaks the macro
-                            //
-                            rv.push(hyprtxt!(script { src: &to[7..] }));
-                        },
-                        "css" => {
-                            let path = "./public/assets/css";
-                            let to = [path, file_name.as_ref()].join("");
-                            fs::create_dir_all(path)?;
-                            fs::copy(p.path(), &to)?;
-                            rv.push(hyprtxt!(link { rel: "stylesheet", href: &to[7..] }));
-                        },
-                        _ => continue,
-                    }
-                }
-            }
+    pub fn new(template: impl Fn(String) -> String + 'static) -> Self {
+        Self {
+            pages: HashMap::new(),
+            endpoints: HashMap::new(),
+            template: Box::new(template),
         }
-        Ok(rv)
+    }
+}
+
+impl StaticSite for SiteBuilder {
+    fn add_page(&mut self, path: impl Into<Endpoint>, response: String) {
+        self.pages.insert(path.into(), response);
     }
 
-    fn add_endpoint(&mut self, path: Endpoint, response: String) {
-        self.insert(path, response);
+    fn add_endpoint(&mut self, path: impl Into<Endpoint>, response: String) {
+        self.endpoints.insert(path.into(), response);
     }
 
     fn generate(&self) -> Result<(), Error> {
-        let prefix = "public";
+        let prefix = "./public";
 
-        for (endpoint, page) in self.iter() {
+        for (endpoint, page) in self.pages.iter() {
             fs::create_dir_all(endpoint.dir(prefix))?;
-            fs::write(endpoint.path(prefix), page.to_string())?;
+            fs::write(endpoint.path(prefix), (self.template)(page.to_string()))?;
+        }
 
+        for (endpoint, partial) in self.endpoints.iter() {
+            let prefix = [prefix, "hmi"].join("/");
+            fs::create_dir_all(endpoint.dir(&prefix))?;
+            fs::write(endpoint.path(&prefix), partial.to_string())?;
         }
 
         Ok(())
     }
 }
+
+pub trait StaticSite {
+    fn add_endpoint(&mut self, path: impl Into<Endpoint>, response: String);
+    fn add_page(&mut self, path: impl Into<Endpoint>, response: String);
+    fn generate(&self) -> Result<(), std::io::Error>;
+}
+
+pub fn bundle_assets() -> Result<Vec<String>, Error> {
+    let paths = fs::read_dir("./assets")?;
+    let mut rv = vec![];
+    for path in paths {
+        if let Ok(p) = path {
+            let file_name = p.path()
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .to_string();
+
+            if let Some(ext) = file_name.split(".").last() {
+                match ext {
+                    "js" => {
+                        let path = "./public/assets/js";
+                        let to = [path, file_name.as_ref()].join("/");
+                        fs::create_dir_all(path)?;
+                        fs::copy(p.path(), &to)?;
+
+                        let to = &to[9..].to_string();
+                        rv.push(hyprtxt!(script { src=to.to_string() }));
+                    },
+                    "css" => {
+                        let path = "./public/assets/css";
+                        let to = [path, file_name.as_ref()].join("/");
+                        fs::create_dir_all(path)?;
+                        fs::copy(p.path(), &to)?;
+
+                        let to = &to[9..].to_string();
+                        rv.push(hyprtxt!(link* { rel="stylesheet" type="text/css" href=to.to_string() }));
+                    },
+                    "pdf" => {
+                        let path = "./public/assets/docs";
+                        let to = [path, file_name.as_ref()].join("/");
+                        fs::create_dir_all(path)?;
+                        fs::copy(p.path(), &to)?;
+                    },
+                    "svg" => {
+                        let path = "./public/assets/vector";
+                        let to = [path, file_name.as_ref()].join("/");
+                        fs::create_dir_all(path)?;
+                        fs::copy(p.path(), &to)?;
+                    },
+                    "jpg" | "jpeg" | "png" => {
+                        let path = "./public/assets/img";
+                        let to = [path, file_name.as_ref()].join("/");
+                        fs::create_dir_all(path)?;
+                        fs::copy(p.path(), &to)?;
+                    },
+                    "mp3" | "ogg" | "flac" | "wav" => {
+                        let path = "./public/assets/sounds";
+                        let to = [path, file_name.as_ref()].join("/");
+                        fs::create_dir_all(path)?;
+                        fs::copy(p.path(), &to)?;
+                    }
+                    _ => continue,
+                }
+            }
+        }
+    }
+    Ok(rv)
+}
+
 
 #[cfg(test)]
 mod tests {
