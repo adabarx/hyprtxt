@@ -2,16 +2,14 @@
 
 ## Concept
 
-A simple static site generator. I was inspired to make this after reading [hypermedia.systems](https://hypermedia.systems).
-
-The main feature is the procedural macro in `/txt`, which implements a templating language which renders into a stringified HTML node.
+A simple HTML templating proc macro. I was inspired to make this after reading [hypermedia.systems](https://hypermedia.systems).
 
 ### Example
 
 ```
 hyprtxt!(
     div {
-        .="content-root"
+        "class"="content-root"
         "tag"
         $: "content"
     }
