@@ -1,10 +1,8 @@
-#![allow(unused)]
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens, TokenStreamExt};
 use syn::{
-    parse::{ Parse, ParseStream, ParseBuffer, Parser },
-    braced, Ident, token, Token, Expr,
-    ext::IdentExt,
+    parse::{ Parse, ParseStream, ParseBuffer},
+    braced, token, Token, Expr, LitStr,
 };
 
 
@@ -42,47 +40,35 @@ impl ToTokens for ContentStream {
 }
 
 #[derive(Debug)]
-struct AttrStream(Ident, Expr);
+struct AttrStream(LitStr, Expr);
 
 impl Parse for AttrStream {
     fn parse(stream: ParseStream) -> syn::Result<Self> {
-        if stream.peek(Token!(.)) {
-            let _: Token!(.) = stream.parse()?;
-            let _: Token!(=) = stream.parse()?;
-            return Ok(Self(Ident::parse_any.parse_str("class")?, stream.parse::<Expr>()?))
-        }
-
-        if stream.peek(Token!(#)) {
-            let _: Token!(#) = stream.parse()?;
-            let _: Token!(=) = stream.parse()?;
-            return Ok(Self(Ident::parse_any.parse_str("id")?, stream.parse::<Expr>()?))
-        }
-
-        let ident = stream.call(Ident::parse_any)?;
+        let attribute = stream.parse()?;
         let _: Token!(=) = stream.parse()?;
         let value: Expr = stream.parse()?;
 
-        Ok(Self(ident, value))
+        Ok(Self(attribute, value))
     }
 }
 
 impl ToTokens for AttrStream {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let key = self.0.to_string();
+        let key = self.0.value();
         let value = &self.1;
         tokens.append_all(quote! { format!(" {}=\"{}\"", #key, #value) });
     }
 }
 
 struct ElementStream {
-    tag: Ident,
+    tag: LitStr,
     void: bool,
     attrs: Vec<AttrStream>,
     content: Vec<Box<dyn ToTokens>>,
 }
 
 impl ElementStream {
-    pub fn new(tag: Ident, void: bool) -> Self {
+    pub fn new(tag: LitStr, void: bool) -> Self {
         Self {
             tag,
             void,
@@ -120,40 +106,26 @@ enum PeekInsideElemResult {
     Element,
     Content,
     Attribute,
-    Class,
-    Id,
 }
 
 impl PeekInsideElemResult {
     pub fn new(s: &ParseBuffer) -> syn::Result<Self> {
-        // p {} -> <p></p>
-        if s.peek(Ident::peek_any) && s.peek2(token::Brace) {
-            return Ok(Self::Element)
-        };
-        // p: "x" -> <p>x</p>
-        if s.peek(Ident::peek_any) && s.peek2(Token!(:)) {
+        // "p" {} -> <p></p>
+        if s.peek(LitStr) && s.peek2(token::Brace) {
             return Ok(Self::Element)
         };
         // { $: "x" } -> <>x</>
         if s.peek(Token!($)) && s.peek2(Token!(:)) {
             return Ok(Self::Content)
         };
-        // p { class="stuff" } -> <p class="stuff"></p>
-        if s.peek(Ident::peek_any) && s.peek2(Token!(=)) {
+        // "p" { "class"="stuff" } -> <p class="stuff"></p>
+        if s.peek(LitStr) && s.peek2(Token!(=)) {
             return Ok(Self::Attribute)
         };
-        // p { .="stuff" } -> <p class="stuff"></p>
-        if s.peek(Token!(.)) && s.peek2(Token!(=)) {
-            return Ok(Self::Class)
-        };
-        // p { #="stuff" } -> <p id="stuff"></p>
-        if s.peek(Token!(#)) && s.peek2(Token!(=)) {
-            return Ok(Self::Id);
-        };
-        if s.peek(Ident::peek_any) && s.peek2(Token!(*)) && s.peek3(token::Brace) {
+        if s.peek(LitStr) && s.peek2(Token!(*)) && s.peek3(token::Brace) {
             return Ok(Self::Element)
         };
-        if s.peek(Ident::peek_any) && s.peek2(Token!(*)) && s.peek3(token::Brace) {
+        if s.peek(LitStr) && s.peek2(Token!(*)) && s.peek3(token::Brace) {
             return Ok(Self::Element)
         };
         Err(s.error("Invalid Syntax"))
@@ -163,18 +135,18 @@ impl PeekInsideElemResult {
 
 impl Parse for ElementStream  {
     fn parse(stream: ParseStream) -> syn::Result<Self> {
-        let ident = stream.call(Ident::parse_any)?;
+        let element: LitStr = stream.parse()?;
 
         let mut element = match ElemTypeResult::new(stream)? {
-            ElemTypeResult::Default => ElementStream::new(ident, false),
+            ElemTypeResult::Default => ElementStream::new(element, false),
             ElemTypeResult::Void => {
                 let _: Token!(*) = stream.parse()?;
-                ElementStream::new(ident, true)
+                ElementStream::new(element, true)
             },
             ElemTypeResult::SingleContainer => {
                 let _: Token!(:) = stream.parse()?;
-                let mut element = ElementStream::new(ident, false);
-                if stream.peek(Ident::peek_any) {
+                let mut element = ElementStream::new(element, false);
+                if stream.peek(LitStr) {
                     element.content.push(Box::new(stream.parse::<ElementStream>()?))
                 } else {
                     element.content.push(Box::new(stream.parse::<Expr>()?));
@@ -194,7 +166,8 @@ impl Parse for ElementStream  {
                     element.content.push(Box::new(b_stream.parse::<ContentStream>()?)),
                 Element =>
                     element.content.push(Box::new(b_stream.parse::<ElementStream>()?)),
-                Id | Class | Attribute => element.attrs.push(b_stream.parse()?),
+                Attribute =>
+                    element.attrs.push(b_stream.parse()?),
             }
         };
 
@@ -204,7 +177,7 @@ impl Parse for ElementStream  {
 
 impl ToTokens for ElementStream {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let tag = self.tag.to_string();
+        let tag = self.tag.value();
         let attrs = &self.attrs;
         let content = &self.content;
         if self.void {
