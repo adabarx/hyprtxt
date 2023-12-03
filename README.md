@@ -7,6 +7,8 @@ A simple HTML templating proc macro. I was inspired to make this after reading [
 ### Example
 
 ```
+use hyprtxt::hyprtxt;
+
 hyprtxt!(
     "div" {
         "class"="content-root"
