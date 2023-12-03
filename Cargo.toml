@@ -9,7 +9,7 @@ categories = ["template-engine"]
 homepage = "https://github.com/adabarx/hyprtxt"
 repository = "https://github.com/adabarx/hyprtxt"
 readme = "README.md"
-author = ["Ada <adaminabarx@gmail.com>"]
+authors = ["Ada <adaminabarx@gmail.com>"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
